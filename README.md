@@ -4,15 +4,22 @@
 可以直接调用的 **OpenAI 兼容端点**。Vercel Serverless，零依赖，透传 SSE 流式响应。
 
 [![Test](https://github.com/tortrixx/index-translate-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/tortrixx/index-translate-proxy/actions/workflows/test.yml)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tortrixx/index-translate-proxy)
 ![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-[快速开始](#快速开始) • [插件配置](#插件配置) • [工作原理](#工作原理) • [环境变量](#环境变量) • [限制](#限制) • [开发](#开发)
+[快速开始](#快速开始) • [插件配置](#插件配置) • [API](#api) • [工作原理](#工作原理) • [环境变量](#环境变量) • [限制](#限制) • [开发](#开发)
 
 ![状态页](docs/screenshot.png)
 
 ## 快速开始
+
+**一键部署**（不需要本地环境）：
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tortrixx/index-translate-proxy)
+
+点击后登录并授权 Vercel，它会自动在你的账号下建一份仓库副本并完成部署。之后改动副本代码，Vercel 会自动重新部署。
+
+**或者用命令行**：
 
 ```bash
 git clone https://github.com/tortrixx/index-translate-proxy
@@ -20,7 +27,7 @@ cd index-translate-proxy
 npx vercel deploy --prod
 ```
 
-部署完得到 `https://<项目名>.vercel.app`，直接可用：
+部署完会得到 `https://<项目名>.vercel.app`，直接可用：
 
 ```bash
 curl https://<项目名>.vercel.app/v1/chat/completions \
@@ -43,6 +50,20 @@ curl https://<项目名>.vercel.app/v1/chat/completions \
 | API Key | 未设 `PROXY_API_KEY` 时随便填（如 `index`） |
 
 部署后浏览器打开 `https://<你的域名>/`，页面上可一键跑通「翻译自检 / 流式自检」。
+
+## API
+
+接口与 OpenAI 兼容，插件只需要 `chat/completions`：
+
+| 端点 | 说明 |
+| --- | --- |
+| `POST /v1/chat/completions` | 插件主入口 |
+| `POST /v1/responses` | OpenAI Responses API |
+| `POST /v1/completions` | 老式补全（上游未实现，原样透传其错误） |
+| `GET /v1/models` | 模型列表（上游不可用时回退内置表） |
+| `GET /v1` | 服务状态与配置自检（JSON） |
+
+支持 `stream: true` 的 SSE 流式响应；只放行上述路径，其余返回 404。
 
 ## 工作原理
 
@@ -78,7 +99,7 @@ curl https://<项目名>.vercel.app/v1/chat/completions \
 ```bash
 node test/local-server.mjs                          # 本地 mock Vercel 环境 + 状态页：http://127.0.0.1:8080
 node test/run-tests.mjs                             # 17 个用例：CORS / 流式 / 鉴权 / body 改写 / 上游隔离
-SKIP_UPSTREAM=1 node test/run-tests.mjs             # 只跑离线用例（不访问外网）
+npm run test:offline                                # 只跑离线用例（不访问外网，CI 跑的就是它）
 PROXY_URL=https://<域名> node test/live-check.mjs    # 对已部署实例跑 8 项真实请求验收
 ./scripts/verify-domain.sh <域名>                    # DNS / 证书 / 直连 / 完整验收一把过
 ```

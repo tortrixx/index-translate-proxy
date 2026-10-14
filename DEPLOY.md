@@ -1,14 +1,26 @@
 # 部署指南
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tortrixx/index-translate-proxy)
-
 部署只需要几分钟，没有构建步骤、没有 npm 依赖。**唯一需要注意的是国内使用时要绑自有域名**（见第 3 节）。
 
 ---
 
 ## 1. 部署方式
 
-### 方式 A：Vercel CLI（推荐）
+三种方式任选其一，效果相同。
+
+### 方式 A：一键部署（推荐）
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tortrixx/index-translate-proxy)
+
+点击后登录并授权 Vercel，按提示选择账号即可。Vercel 会：
+
+1. 在你的 Git 账号下创建一份本仓库的副本（名字可改）
+2. 自动识别为无框架项目并完成部署
+3. 之后你改动这份副本的代码，Vercel 会自动重新部署
+
+不需要本地安装任何东西。**不想要仓库副本**的话用方式 B 或 C。
+
+### 方式 B：Vercel CLI
 
 ```bash
 git clone https://github.com/tortrixx/index-translate-proxy.git
@@ -30,10 +42,6 @@ Want to modify these settings?              → n
 
 结束后会输出 `https://<项目名>.vercel.app`。
 
-### 方式 B：网页导入
-
-在 [vercel.com/new](https://vercel.com/new) 导入本仓库，**Framework Preset 选 `Other`**，其余保持默认，直接 Deploy。
-
 ### 方式 C：本仓库自带脚本
 
 ```bash
@@ -41,7 +49,14 @@ export VERCEL_TOKEN=xxxx        # https://vercel.com/account/tokens
 ./scripts/deploy.sh
 ```
 
-脚本会在仓库内建一个隔离的 CLI 环境（`.tools/`，已 gitignore），不会污染系统目录。
+脚本会在仓库内建一个隔离的 CLI 环境（`.tools/`，已 gitignore），不会污染系统目录；
+若目录里没有 `.vercel/` 关联文件（例如全新 clone），它会先自动关联到已有项目再部署，
+避免把这次部署误当成新项目创建。
+
+### 网页手动导入
+
+也可以直接在 [vercel.com/new](https://vercel.com/new) 导入仓库，**Framework Preset 选 `Other`**，
+其余保持默认，直接 Deploy。
 
 ---
 
