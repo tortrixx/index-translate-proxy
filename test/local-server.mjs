@@ -1,5 +1,5 @@
 /**
- * 本地模拟 Vercel 运行环境，用于在部署前验证 api/v1/[...path].js。
+ * 本地模拟 Vercel 运行环境，用于在部署前验证代理逻辑、预览状态页。
  *
  * 刻意复刻了 Vercel 的两个关键行为，否则本地测过了线上仍可能翻车：
  *   1. vercel.json 里的 rewrites：/v1/* → /api/v1/*
@@ -8,7 +8,9 @@
  * 环境变量：
  *   PORT          监听端口（默认 8080）
  *   PREPARE_BODY  1=预解析 JSON body（默认，模拟 Vercel）；0=让 handler 自己读流
+ *   PAGE_OVERRIDE 用别的文件替代 public/index.html（仅用于截图等特殊场景）
  */
+import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,9 +22,19 @@ const { default: handler } = await import(pathToFileURL(handlerPath).href);
 
 const PORT = Number(process.env.PORT || 8080);
 const PREPARE_BODY = process.env.PREPARE_BODY !== '0';
+const PAGE = process.env.PAGE_OVERRIDE || path.join(here, '..', 'public', 'index.html');
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+  // 静态状态页：本地打开 http://127.0.0.1:8080/ 就能预览 public/index.html
+  if ((url.pathname === '/' || url.pathname === '/index.html') && req.method === 'GET') {
+    const html = fs.readFileSync(PAGE);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end(html);
+    return;
+  }
 
   // 1. 模拟 vercel.json rewrites
   if (/^\/v1(\/|$)/.test(url.pathname)) {
@@ -52,5 +64,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[local-server] listening on http://127.0.0.1:${PORT} (prepareBody=${PREPARE_BODY})`);
+  console.log(`[local-server] http://127.0.0.1:${PORT}  (prepareBody=${PREPARE_BODY})`);
 });
