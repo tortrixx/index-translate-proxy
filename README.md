@@ -3,6 +3,7 @@
 把 [Index-Translate](https://github.com/bilibili/Index-Translate) 的**免费公共 API** 转成浏览器插件
 可以直接调用的 **OpenAI 兼容端点**。Vercel Serverless，零依赖，透传 SSE 流式响应。
 
+[![Test](https://github.com/tortrixx/index-translate-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/tortrixx/index-translate-proxy/actions/workflows/test.yml)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tortrixx/index-translate-proxy)
 ![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)

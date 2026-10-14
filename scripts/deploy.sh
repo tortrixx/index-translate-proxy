@@ -29,4 +29,12 @@ else
   echo "→ 未设置 VERCEL_TOKEN，尝试使用 CLI 已登录的凭据（没有的话先 npx vercel login）"
 fi
 
+# .vercel/ 是本地的项目关联文件，不会随仓库分发。全新 clone 后若直接 deploy，
+# CLI 会当成新项目创建，而不是更新已有项目 —— 所以这里先补上关联。
+if [ ! -f "$ROOT/.vercel/project.json" ]; then
+  PROJECT="${VERCEL_PROJECT:-$(basename "$ROOT")}"
+  echo "→ 尚未关联 Vercel 项目，正在关联「$PROJECT」..."
+  "$VC" link --yes --project "$PROJECT" "${AUTH[@]}"
+fi
+
 "$VC" deploy --prod --yes "${AUTH[@]}"

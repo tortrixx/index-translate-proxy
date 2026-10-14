@@ -1,14 +1,20 @@
 {
-  "name": "index-translate-vercel-proxy",
+  "name": "index-translate-proxy",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Vercel 上的 Index-Translate 免费 API 转发网桥（补齐 CORS，支持 SSE 流式）",
+  "description": "把 Index-Translate 免费公共 API 转成浏览器插件可直接调用的 OpenAI 兼容端点（Vercel Serverless，零依赖，透传 SSE）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tortrixx/index-translate-proxy.git"
+  },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "node test/local-server.mjs",
-    "test": "node test/run-tests.mjs"
+    "test": "node test/run-tests.mjs",
+    "test:offline": "SKIP_UPSTREAM=1 node test/run-tests.mjs"
   }
 }

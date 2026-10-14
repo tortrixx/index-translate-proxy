@@ -1,0 +1,23 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 本地用例（离线，不依赖外网）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 用例会 spawn 子进程、复刻 Vercel 的 rewrites 与 JSON body 预解析行为，
+      # 并用本地 echo 服务验证请求体改写与头部隔离，全程不访问外网。
+      - name: Run tests
+        run: npm run test:offline
