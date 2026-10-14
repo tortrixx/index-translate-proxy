@@ -1,0 +1,14 @@
+{
+  "name": "index-translate-vercel-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vercel 上的 Index-Translate 免费 API 转发网桥（补齐 CORS，支持 SSE 流式）",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node test/local-server.mjs",
+    "test": "node test/run-tests.mjs"
+  }
+}

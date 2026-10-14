@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Index-Translate 转发服务</title>
+    <meta name="description" content="Index-Translate 免费 API 的 CORS 转发网桥：补齐跨域头、透传 SSE 流式响应。" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Ctext x='16' y='22' font-size='16' font-family='system-ui,sans-serif' font-weight='700' fill='white' text-anchor='middle'%3E%E8%AF%91%3C/text%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f5f6fa;
+        --card: #ffffff;
+        --fg: #16181d;
+        --muted: #6b7280;
+        --line: #e9ebf0;
+        --code-bg: #f3f4f7;
+        --accent: #2563eb;
+        --ok-bg: #e6f6ec;
+        --ok-fg: #0f7b3d;
+        --bad-bg: #fdeaea;
+        --bad-fg: #b42318;
+        --wait-bg: #eef2ff;
+        --wait-fg: #3730a3;
+        --shadow: 0 8px 30px rgba(15, 23, 42, 0.07);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115;
+          --card: #171a21;
+          --fg: #e8eaee;
+          --muted: #9aa3b2;
+          --line: #262b35;
+          --code-bg: #21262f;
+          --accent: #7aa2f7;
+          --ok-bg: #12301f;
+          --ok-fg: #6ee7a8;
+          --bad-bg: #3a1a1a;
+          --bad-fg: #fca5a5;
+          --wait-bg: #1e2440;
+          --wait-fg: #a5b4fc;
+          --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 40px 18px 64px;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        display: flex;
+        justify-content: center;
+      }
+      .wrap { width: 100%; max-width: 780px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 28px 30px;
+        box-shadow: var(--shadow);
+      }
+      header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+      h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+      .tagline { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 12.5px; font-weight: 600;
+        padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+      }
+      .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .pill.ok { background: var(--ok-bg); color: var(--ok-fg); }
+      .pill.bad { background: var(--bad-bg); color: var(--bad-fg); }
+      .pill.wait { background: var(--wait-bg); color: var(--wait-fg); }
+      h2 {
+        font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--muted);
+        margin: 30px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+      }
+      dl { display: grid; grid-template-columns: 132px 1fr; gap: 10px 14px; margin: 0; font-size: 14px; }
+      dt { color: var(--muted); }
+      dd { margin: 0; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      code {
+        background: var(--code-bg); padding: 2px 7px; border-radius: 6px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px; word-break: break-all;
+      }
+      button {
+        font: inherit; font-size: 13px; font-weight: 600;
+        color: var(--fg); background: var(--card);
+        border: 1px solid var(--line); border-radius: 9px;
+        padding: 7px 14px; cursor: pointer; transition: border-color 0.15s, opacity 0.15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      button.ghost { padding: 3px 9px; font-size: 12px; font-weight: 500; color: var(--muted); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .row { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+      .result {
+        margin-top: 14px; border: 1px solid var(--line); border-radius: 11px;
+        padding: 14px 16px; background: var(--code-bg); min-height: 62px;
+        font-size: 14px; white-space: pre-wrap; word-break: break-word;
+      }
+      .result .empty { color: var(--muted); font-size: 13px; }
+      .result .err { color: var(--bad-fg); font-size: 13.5px; }
+      .meta { margin-top: 9px; color: var(--muted); font-size: 12.5px; display: flex; gap: 14px; flex-wrap: wrap; }
+      details { margin-top: 12px; font-size: 13px; }
+      summary { cursor: pointer; color: var(--muted); }
+      pre {
+        margin: 10px 0 0; padding: 13px 15px; border-radius: 10px;
+        background: #0f172a; color: #e2e8f0; overflow: auto; max-height: 300px;
+        font-size: 12px; line-height: 1.6;
+      }
+      footer { margin-top: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
+      a { color: var(--accent); }
+      .note { margin-top: 26px; }
+      @media (max-width: 560px) {
+        .card { padding: 22px 18px; }
+        dl { grid-template-columns: 1fr; gap: 4px 0; }
+        dt { margin-top: 6px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <main class="card">
+        <header>
+          <div>
+            <h1>Index-Translate 转发服务</h1>
+            <p class="tagline">Vercel Serverless 网桥 · 补齐 CORS · 透传 SSE 流式</p>
+          </div>
+          <span id="status" class="pill wait" role="status" aria-live="polite">检测中…</span>
+        </header>
+
+        <h2>插件配置</h2>
+        <dl>
+          <dt>翻译服务</dt>
+          <dd>自定义 / OpenAI 兼容</dd>
+
+          <dt>接口地址 API URL</dt>
+          <dd>
+            <code id="apiBase">—</code>
+            <button class="ghost" data-copy="apiBase" type="button">复制</button>
+          </dd>
+
+          <dt>模型 Model</dt>
+          <dd>
+            <code id="model">Index-Translate-35B-A3B</code>
+            <button class="ghost" data-copy="model" type="button">复制</button>
+          </dd>
+
+          <dt>API Key</dt>
+          <dd><code id="keyHint">任意填写（如 index）</code></dd>
+        </dl>
+
+        <h2>链路自检</h2>
+        <div class="row">
+          <button id="run" class="primary" type="button">翻译自检</button>
+          <button id="runStream" type="button">流式自检</button>
+          <span id="timing" class="meta"></span>
+        </div>
+        <div id="result" class="result"><span class="empty">点击上面的按钮，会用真实请求走一遍完整链路。</span></div>
+        <details id="rawBox" hidden>
+          <summary>查看原始响应</summary>
+          <pre id="raw"></pre>
+        </details>
+
+        <h2>运行信息</h2>
+        <dl>
+          <dt>上游地址</dt>
+          <dd><code id="upstream">—</code></dd>
+          <dt>鉴权</dt>
+          <dd id="authState">—</dd>
+          <dt>可用端点</dt>
+          <dd id="endpoints">—</dd>
+        </dl>
+
+        <footer class="note">
+          本服务不记录、不转发任何密钥。部署方式与自定义域名配置见
+          <a href="https://github.com/tortrixx/index-translate-proxy" target="_blank" rel="noopener">项目仓库</a>，
+          模型与上游 API 来自
+          <a href="https://github.com/bilibili/Index-Translate" target="_blank" rel="noopener">bilibili/Index-Translate</a>。
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        var apiBase = location.origin.replace(/\/+$/, "") + "/v1";
+        var cfg = { model: "Index-Translate-35B-A3B", authRequired: false };
+
+        var $ = function (id) { return document.getElementById(id); };
+        var statusEl = $("status");
+        var resultEl = $("result");
+        var timingEl = $("timing");
+
+        $("apiBase").textContent = apiBase;
+
+        function setStatus(kind, text) {
+          statusEl.className = "pill " + kind;
+          statusEl.textContent = text;
+        }
+
+        function setResult(text, isError) {
+          resultEl.textContent = "";
+          if (isError) {
+            var span = document.createElement("span");
+            span.className = "err";
+            span.textContent = text;
+            resultEl.appendChild(span);
+          } else {
+            resultEl.textContent = text;
+          }
+        }
+
+        function showRaw(obj) {
+          $("rawBox").hidden = false;
+          $("raw").textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+        }
+
+        function setTiming(text) { timingEl.textContent = text; }
+
+        function lock(locked) {
+          $("run").disabled = locked;
+          $("runStream").disabled = locked;
+        }
+
+        // 复制按钮
+        Array.prototype.forEach.call(document.querySelectorAll("[data-copy]"), function (btn) {
+          btn.addEventListener("click", function () {
+            var text = $(btn.getAttribute("data-copy")).textContent;
+            var done = function () {
+              var old = btn.textContent;
+              btn.textContent = "已复制";
+              setTimeout(function () { btn.textContent = old; }, 1200);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(done, function () {});
+            }
+          });
+        });
+
+        // 读取服务信息
+        fetch(apiBase, { headers: { Accept: "application/json" } })
+          .then(function (res) {
+            return res.json().then(function (data) { return { res: res, data: data }; });
+          })
+          .then(function (out) {
+            var data = out.data || {};
+            cfg.authRequired = !!data.auth_required;
+            if (data.upstream) $("upstream").textContent = data.upstream;
+            if (data.endpoints) $("endpoints").textContent = data.endpoints.join("　");
+            $("authState").textContent = cfg.authRequired ? "需要 API Key（PROXY_API_KEY）" : "无需密钥，开放访问";
+            $("keyHint").textContent = cfg.authRequired ? "填 PROXY_API_KEY 设置的值" : "任意填写（如 index）";
+            setStatus("ok", "服务在线");
+          })
+          .catch(function (err) {
+            setStatus("bad", "服务异常");
+            setResult("无法连接 " + apiBase + "：" + err.message, true);
+          });
+
+        function buildBody(stream) {
+          return JSON.stringify({
+            model: cfg.model,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "请将以下文本翻译为英语，直接输出翻译结果，不要进行任何解释。\n\n技术赋能创作，让交流跨越语言的界限。",
+              },
+            ],
+            max_tokens: 256,
+            stream: !!stream,
+          });
+        }
+
+        function fail(res, body) {
+          var detail = "";
+          try {
+            var parsed = JSON.parse(body);
+            detail = (parsed.error && (parsed.error.message || parsed.error.code)) || body;
+          } catch (e) {
+            detail = body;
+          }
+          setStatus("bad", "自检失败");
+          setResult("HTTP " + res.status + "：" + String(detail).slice(0, 400), true);
+          showRaw(body);
+        }
+
+        // 非流式自检
+        $("run").addEventListener("click", function () {
+          lock(true);
+          setTiming("");
+          setResult("请求中…");
+          var t0 = performance.now();
+          fetch(apiBase + "/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: buildBody(false),
+          })
+            .then(function (res) {
+              return res.text().then(function (body) { return { res: res, body: body }; });
+            })
+            .then(function (out) {
+              var ms = Math.round(performance.now() - t0);
+              if (!out.res.ok) return fail(out.res, out.body);
+              var data = JSON.parse(out.body);
+              var text = ((data.choices || [])[0] || {}).message;
+              text = (text && text.content) || "";
+              showRaw(data);
+              setTiming("耗时 " + ms + " ms · " + (data.usage ? data.usage.total_tokens + " tokens" : "—"));
+              if (!text.trim()) {
+                setStatus("bad", "返回为空");
+                setResult("上游返回了 200，但译文为空。原始响应见下方。", true);
+                return;
+              }
+              setStatus("ok", "翻译正常");
+              setResult(text.trim());
+            })
+            .catch(function (err) {
+              setStatus("bad", "自检失败");
+              setResult("请求异常：" + err.message, true);
+            })
+            .then(function () { lock(false); });
+        });
+
+        // 流式自检：逐块渲染，验证 SSE 是真的增量透传
+        $("runStream").addEventListener("click", function () {
+          lock(true);
+          setTiming("");
+          setResult("");
+          var t0 = performance.now();
+          var firstAt = 0;
+          var chunks = 0;
+          var text = "";
+          var conv = "";
+
+          fetch(apiBase + "/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: buildBody(true),
+          })
+            .then(function (res) {
+              if (!res.ok) return res.text().then(function (b) { fail(res, b); throw new Error("__handled__"); });
+              var ct = res.headers.get("content-type") || "";
+              if (ct.indexOf("text/event-stream") === -1) {
+                setResult("响应不是 SSE（content-type: " + ct + "），当前服务可能不支持流式。", true);
+                throw new Error("__handled__");
+              }
+              var reader = res.body.getReader();
+              var decoder = new TextDecoder();
+              function pump() {
+                return reader.read().then(function (r) {
+                  if (r.done) return;
+                  chunks++;
+                  if (!firstAt) firstAt = performance.now();
+                  conv += decoder.decode(r.value, { stream: true });
+                  var lines = conv.split("\n");
+                  conv = lines.pop();
+                  for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (line.indexOf("data: ") !== 0) continue;
+                    var payload = line.slice(6);
+                    if (payload === "[DONE]") continue;
+                    try {
+                      var j = JSON.parse(payload);
+                      var delta = ((j.choices || [])[0] || {}).delta;
+                      if (delta && delta.content) {
+                        text += delta.content;
+                        resultEl.textContent = text;
+                      }
+                    } catch (e) { /* 忽略不完整分片 */ }
+                  }
+                  return pump();
+                });
+              }
+              return pump();
+            })
+            .then(function () {
+              var ms = Math.round(performance.now() - t0);
+              var ttfb = firstAt ? Math.round(firstAt - t0) : 0;
+              if (!text) {
+                setStatus("bad", "流式返回为空");
+                setResult("流式请求完成但没有收到内容。", true);
+                return;
+              }
+              setStatus("ok", "流式正常");
+              setTiming("首块 " + ttfb + " ms · 总计 " + ms + " ms · " + chunks + " 个数据块");
+              showRaw(text);
+            })
+            .catch(function (err) {
+              if (err && err.message === "__handled__") return;
+              setStatus("bad", "自检失败");
+              setResult("请求异常：" + err.message, true);
+            })
+            .then(function () { lock(false); });
+        });
+      })();
+    </script>
+  </body>
+</html>

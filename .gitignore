@@ -1,0 +1,12 @@
+.vercel
+node_modules
+.DS_Store
+*.log
+.env
+.env.local
+.env*
+
+# scripts/deploy.sh 会在仓库内创建的隔离环境
+.npm-cache
+.tools
+.home
